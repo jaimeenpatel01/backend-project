@@ -1,0 +1,9 @@
+Folder structure:
+
+controllers:functionality
+db: how to connect data base
+middlewares:cookies validation
+models:database model{name:string age:number etc....}
+routes:get post requests are placed in routes file
+utils:a template which is used again and again
+
