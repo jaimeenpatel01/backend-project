@@ -7,3 +7,22 @@ models:database model{name:string age:number etc....}
 routes:get post requests are placed in routes file
 utils:a template which is used again and again
 
+------------------------------------------------------
+
+App.js ---> through express 
+index.js--> database connection 
+
+-------------------------------------------------------
+
+while creating connection for database:
+
+1. use try catch block
+2. async await
+
+-------------------------------------------------------
+
+app.use() ---> it is used when any middlware or configuration setting is to be middlware
+
+app.use(express.urlEncoded) ---> jaimeen patel will be shown in address bar as jaimeen%20patel, so these %,+,etc... symbols should be recognized when requesting or receiving the data
+
+app.use(express.static("public")) ---> is used for storing images or media files 
