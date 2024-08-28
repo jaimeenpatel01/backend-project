@@ -26,3 +26,13 @@ app.use() ---> it is used when any middlware or configuration setting is to be m
 app.use(express.urlEncoded) ---> jaimeen patel will be shown in address bar as jaimeen%20patel, so these %,+,etc... symbols should be recognized when requesting or receiving the data
 
 app.use(express.static("public")) ---> is used for storing images or media files 
+
+-------------------------------------------------------
+
+Status Codes:
+
+1xx- Information
+2xx- Success
+3xx- Redirect
+4xx- Client Side Error
+5xx- Server Side Error
