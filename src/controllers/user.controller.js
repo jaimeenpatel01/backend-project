@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import jwt from "jsonwebtoken";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
@@ -71,39 +72,39 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { email, password, username } = req.body;
-  if (!email || !username) {
-    res.status(400).json("Username or Email is required");
-  }
+    const { email, password, username } = req.body;
+    if (!(email || username)) {
+        res.status(400).json("Username or Email is required");
+    }
 
-  const user = await User.findOne({
-    $or: [{ username }, { email }],
-  });
+    const user = await User.findOne({
+        $or: [{ username }, { email }],
+    });
 
-  if (!user) res.status(404).json("User does not exist");
+    if (!user) res.status(404).json("User does not exist");
 
-  const isPasswordValid = await user.isPasswordCorrect(password);
-  if (!isPasswordValid) res.status(401).json("Invalid Password");
+    const isPasswordValid = await user.isPasswordCorrect(password);
+    if (!isPasswordValid) res.status(401).json("Invalid Password");
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user._id
-  );
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+        user._id
+    );
 
-  const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
+    const loggedInUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    );
 
-  const options = {
-    //sending cookies
-    httpOnly: true,
-    secure: true,
-  };
+    const options = {
+        //sending cookies
+        httpOnly: true,
+        secure: true,
+    };
 
-  return res
-    .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
-    .json("user logged in successfully");
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json("user logged in successfully");
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -129,4 +130,43 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json("User logged out");
 });
 
-export { registerUser, loginUser, logoutUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!incomingRefreshToken) {
+        res.status(401).json("Unauthorized request");
+    }
+
+   try {
+     const decodedToken = jwt.verify(incomingRefreshToken, REFRESH_TOKEN_SECRET);
+ 
+     const user = await User.findById(decodedToken?._id);
+ 
+     if (!user) {
+         res.status(401).json("Invalid Access Token")
+     }
+     
+     //validate refresh token from user and database
+     if (incomingRefreshToken !== user?.refreshToken) {
+         res.status(401).json("Refresh token is expired or used")
+     }
+ 
+     const options = {
+         httpOnly: true,
+         secure:true
+     }
+ 
+     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
+ 
+     return res
+         .status(200)
+         .cookie("accessToken", accessToken, options)
+         .cookie("refreshToken", refreshToken, options)
+         .json("Access token refreshed")
+   } catch (error) {
+       return res.status(401).json("Invalid refresh token", error);
+   }
+    
+})
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
