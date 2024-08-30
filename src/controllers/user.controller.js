@@ -72,39 +72,39 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, password, username } = req.body;
-    if (!(email || username)) {
-        res.status(400).json("Username or Email is required");
-    }
+  const { email, password, username } = req.body;
+  if (!(email || username)) {
+    res.status(400).json("Username or Email is required");
+  }
 
-    const user = await User.findOne({
-        $or: [{ username }, { email }],
-    });
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
 
-    if (!user) res.status(404).json("User does not exist");
+  if (!user) res.status(404).json("User does not exist");
 
-    const isPasswordValid = await user.isPasswordCorrect(password);
-    if (!isPasswordValid) res.status(401).json("Invalid Password");
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  if (!isPasswordValid) res.status(401).json("Invalid Password");
 
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-        user._id
-    );
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
 
-    const loggedInUser = await User.findById(user._id).select(
-        "-password -refreshToken"
-    );
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
-    const options = {
-        //sending cookies
-        httpOnly: true,
-        secure: true,
-    };
+  const options = {
+    //sending cookies
+    httpOnly: true,
+    secure: true,
+  };
 
-    return res
-        .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
-        .json("user logged in successfully");
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json("user logged in successfully");
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -131,42 +131,156 @@ const logoutUser = asyncHandler(async (req, res) => {
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-    const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
 
-    if (!incomingRefreshToken) {
-        res.status(401).json("Unauthorized request");
+  if (!incomingRefreshToken) {
+    res.status(401).json("Unauthorized request");
+  }
+
+  try {
+    const decodedToken = jwt.verify(incomingRefreshToken, REFRESH_TOKEN_SECRET);
+
+    const user = await User.findById(decodedToken?._id);
+
+    if (!user) {
+      res.status(401).json("Invalid Access Token");
     }
 
-   try {
-     const decodedToken = jwt.verify(incomingRefreshToken, REFRESH_TOKEN_SECRET);
- 
-     const user = await User.findById(decodedToken?._id);
- 
-     if (!user) {
-         res.status(401).json("Invalid Access Token")
-     }
-     
-     //validate refresh token from user and database
-     if (incomingRefreshToken !== user?.refreshToken) {
-         res.status(401).json("Refresh token is expired or used")
-     }
- 
-     const options = {
-         httpOnly: true,
-         secure:true
-     }
- 
-     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id)
- 
-     return res
-         .status(200)
-         .cookie("accessToken", accessToken, options)
-         .cookie("refreshToken", refreshToken, options)
-         .json("Access token refreshed")
-   } catch (error) {
-       return res.status(401).json("Invalid refresh token", error);
-   }
-    
-})
+    //validate refresh token from user and database
+    if (incomingRefreshToken !== user?.refreshToken) {
+      res.status(401).json("Refresh token is expired or used");
+    }
 
-export { registerUser, loginUser, logoutUser, refreshAccessToken };
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json("Access token refreshed");
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid refresh token", error });
+  }
+});
+
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  const user = await User.findById(req.user?._id);
+
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    res.status(400).json("Invalid old password");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res.status(200).json("Password changed successfully");
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json({ user: req.user, message: "User fetched successfully" });
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!fullname || !email) {
+    res.status(400).json("All fields are required")
+  }
+
+  const user = User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullname,
+        email,
+      }
+    },
+    {
+      new: true,
+    }
+  ).select("-password")
+
+  return res
+    .status(200)
+    .json({ user, "message": "Account details updated successfully" }
+    )
+});
+
+//update files
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+
+  if (!avatarLocalPath) {
+    return res.status(400).json("Avatar file is missing");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  if (!avatar.url) return res.status(400).json("Error while uploading file on cloudinary");
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      }
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json({ user, message: "Avatar Image changed successfully" })
+
+});
+
+const updateCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+
+  if (!coverImageLocalPath) {
+    return res.status(400).json("CoverImage file is missing");
+  }
+
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+
+  if (!coverImage.url) return res.status(400).json("Error while uploading file on cloudinary");
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      }
+    },
+    { new: true }
+  ).select("-password");
+    
+  return res
+    .status(200)
+    .json({ user, message: "CoverImage changed successfully" })
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateCoverImage
+};
