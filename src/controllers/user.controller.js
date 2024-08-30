@@ -197,26 +197,25 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullname, email } = req.body;
 
   if (!fullname || !email) {
-    res.status(400).json("All fields are required")
+    res.status(400).json("All fields are required");
   }
 
-  const user = User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
         fullname,
         email,
-      }
+      },
     },
     {
       new: true,
     }
-  ).select("-password")
+  ).select("-password");
 
   return res
     .status(200)
-    .json({ user, "message": "Account details updated successfully" }
-    )
+    .json({ user, message: "Account details updated successfully" });
 });
 
 //update files
@@ -229,22 +228,22 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
-  if (!avatar.url) return res.status(400).json("Error while uploading file on cloudinary");
+  if (!avatar.url)
+    return res.status(400).json("Error while uploading file on cloudinary");
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
         avatar: avatar.url,
-      }
+      },
     },
     { new: true }
   ).select("-password");
 
   return res
     .status(200)
-    .json({ user, message: "Avatar Image changed successfully" })
-
+    .json({ user, message: "Avatar Image changed successfully" });
 });
 
 const updateCoverImage = asyncHandler(async (req, res) => {
@@ -256,21 +255,22 @@ const updateCoverImage = asyncHandler(async (req, res) => {
 
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
-  if (!coverImage.url) return res.status(400).json("Error while uploading file on cloudinary");
+  if (!coverImage.url)
+    return res.status(400).json("Error while uploading file on cloudinary");
 
   const user = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
         coverImage: coverImage.url,
-      }
+      },
     },
     { new: true }
   ).select("-password");
-    
+
   return res
     .status(200)
-    .json({ user, message: "CoverImage changed successfully" })
+    .json({ user, message: "CoverImage changed successfully" });
 });
 
 export {
@@ -282,5 +282,5 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
-  updateCoverImage
+  updateCoverImage,
 };
