@@ -1,7 +1,10 @@
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import {
+  deleteFileOnCloudinary,
+  uploadOnCloudinary,
+} from "../utils/cloudinary.js";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -225,7 +228,6 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!avatarLocalPath) {
     return res.status(400).json("Avatar file is missing");
   }
-
   const avatar = await uploadOnCloudinary(avatarLocalPath);
 
   if (!avatar.url)
@@ -240,6 +242,13 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     },
     { new: true }
   ).select("-password");
+
+  const oldAvatarUrl = user?.avatar;
+
+  if (oldAvatarUrl) {
+    const publicId = oldAvatarUrl.split("/").pop().split(".")[0];
+    await deleteFileOnCloudinary(publicId);
+  }
 
   return res
     .status(200)
@@ -267,6 +276,12 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     },
     { new: true }
   ).select("-password");
+
+  const coverImageUrl = user.coverImage;
+  if (coverImageUrl) {
+    const publicId = coverImageUrl.split("/").pop().split(".")[0];
+    await deleteFileOnCloudinary(publicId);
+  }
 
   return res
     .status(200)
